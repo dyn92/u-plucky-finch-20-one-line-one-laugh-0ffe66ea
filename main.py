@@ -46,10 +46,24 @@ def self_check(line: str) -> None:
         raise ValueError("line must be a single line")
     if "  " in line:
         raise ValueError("line contains doubled spaces")
+    # The gate counts every character in the file, so a trailing newline
+    # or a control character would silently change the measured text.
+    if any(ord(ch) < 0x20 for ch in line):
+        raise ValueError("line contains a control character")
 
 
 def main() -> int:
     self_check(LINE)
+
+    # The line contains a non-ASCII dash; on a minimal (C/POSIX) locale
+    # the default stdout encoding can be ASCII, and printing the line
+    # would then raise UnicodeEncodeError after the file was already
+    # written, failing the run for no reason. Force UTF-8 output so the
+    # report print can never break an otherwise successful run.
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):
+        pass
 
     output_path = os.environ.get("ENTRY_OUTPUT", DEFAULT_OUTPUT)
     data = LINE.encode("utf-8")
